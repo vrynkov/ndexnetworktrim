@@ -9,7 +9,7 @@ import shutil
 
 import unittest
 from ndexutil.config import NDExUtilConfig
-from ndexnetworktrim import ndexnetworktrim
+from ndexnetworktrim import ndexnetworktrimmer
 
 
 class TestNdexnetworktrim(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestNdexnetworktrim(unittest.TestCase):
 
     def test_parse_arguments(self):
         """Tests parse arguments"""
-        res = ndexnetworktrim._parse_arguments('hi', [])
+        res = ndexnetworktrimmer._parse_arguments('hi', [])
 
         self.assertEqual(res.profile, 'ndexnetworktrim')
         self.assertEqual(res.verbose, 0)
@@ -32,7 +32,7 @@ class TestNdexnetworktrim(unittest.TestCase):
 
         someargs = ['-vv','--conf', 'foo', '--logconf', 'hi',
                     '--profile', 'myprofy']
-        res = ndexnetworktrim._parse_arguments('hi', someargs)
+        res = ndexnetworktrimmer._parse_arguments('hi', someargs)
 
         self.assertEqual(res.profile, 'myprofy')
         self.assertEqual(res.verbose, 2)
@@ -43,14 +43,14 @@ class TestNdexnetworktrim(unittest.TestCase):
     def test_setup_logging(self):
         """ Tests logging setup"""
         try:
-            ndexnetworktrim._setup_logging(None)
+            ndexnetworktrimmer._setup_logging(None)
             self.fail('Expected AttributeError')
         except AttributeError:
             pass
 
         # args.logconf is None
-        res = ndexnetworktrim._parse_arguments('hi', [])
-        ndexnetworktrim._setup_logging(res)
+        res = ndexnetworktrimmer._parse_arguments('hi', [])
+        ndexnetworktrimmer._setup_logging(res)
 
         # args.logconf set to a file
         try:
@@ -80,9 +80,9 @@ args=(sys.stderr,)
 [formatter_formatter]
 format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
 
-            res = ndexnetworktrim._parse_arguments('hi', ['--logconf',
+            res = ndexnetworktrimmer._parse_arguments('hi', ['--logconf',
                                                                        logfile])
-            ndexnetworktrim._setup_logging(res)
+            ndexnetworktrimmer._setup_logging(res)
 
         finally:
             shutil.rmtree(temp_dir)
@@ -101,7 +101,7 @@ format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
                 {server} = dev.ndexbio.org""".format(user=NDExUtilConfig.USER,
                                                      pw=NDExUtilConfig.PASSWORD,
                                                      server=NDExUtilConfig.SERVER))
-            res = ndexnetworktrim.main(['myprog.py', '--conf',
+            res = ndexnetworktrimmer.main(['myprog.py', '--conf',
                                                      confile, '--profile',
                                                      'hi'])
             self.assertEqual(res, 0)

@@ -49,7 +49,7 @@ setup(
     package_dir={'ndexnetworktrim': 'ndexnetworktrim'},
     package_data={'ndexnetworktrim': ['loadplan.json',
                                        'style.cx']},
-    scripts=[ 'ndexnetworktrim/ndexnetworktrim.py'],
+    scripts=[ 'ndexnetworktrim/ndexnetworktrimmer.py'],
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
