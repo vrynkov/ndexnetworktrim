@@ -10,7 +10,7 @@ from datetime import datetime
 
 import ndexnetworktrim
 
-from ndex2.client import Ndex2
+#from ndex2.client import Ndex2
 import ndex2
 
 logger = logging.getLogger(__name__)
@@ -132,9 +132,11 @@ class NDExNetworkTrimmer(object):
                 pass
 
 
-
-
-
+    def _get_user_agent(self):
+        """
+        :return:
+        """
+        return 'ndexnetworktrimmer/' + ndexnetworktrim.__version__
 
 
     def _parse_config(self):
@@ -160,22 +162,8 @@ class NDExNetworkTrimmer(object):
             return 0
 
 
-    def _create_ndex_connection(self):
-        """
-        creates connection to ndex
-        :return:
-        """
-        if self._ndex is None:
-            self._ndex = Ndex2(host=self._server, username=self._user, password=self._pass)
-
-        return self._ndex
-
-
     def _get_network_from_server(self):
         """
-        Gets a dictionary of all networks for user account
-        <network name upper cased> => <NDEx UUID>
-        :return: 0 if success, 2 otherwise
         """
 
         self._network = ndex2.create_nice_cx_from_server(
@@ -204,8 +192,6 @@ class NDExNetworkTrimmer(object):
 
     def _trim_edges(self):
 
-        count_deleted = 0
-
         edges_to_del = []
 
         for key in self._network.edges.keys():
@@ -214,68 +200,88 @@ class NDExNetworkTrimmer(object):
 
             if not self._check_if_edge_attribute_complies(edge_attributes):
                 edges_to_del.append(key)
-                count_deleted += 1
 
         for key in edges_to_del:
             edge_attribute_id = self._network.edges[key]['@id']
             del self._network.edges[key]
             del self._network.edgeAttributes[edge_attribute_id]
 
-        #print(count_deleted)
 
-
-    def _create_ndex_connection(self):
-        """
-        creates connection to ndex
-        :return:
-        """
-        if self._ndex is None:
-            self._ndex = Ndex2(host=self._server, username=self._user, password=self._pass)
-
-            self._ndex.save_new_network(self._network)
-
-        return self._ndex
-
-
-
-    def _modify_network_name(self):
-
-        network_name = self._network.get_name()
-
-        ratio = str( float(format(1.0 * len(self._network.nodes) / len(self._network.edges), '.3f' ) ) )
-
+    def _get_filter_expression_as_string(self):
         if self._is_value_numeric:
-            network_name = network_name + ' ( ' + self._edge_attr + ' >= ' + self._value + ', nodes:edges=' + ratio +  ' )'
+             filter_as_str = self._edge_attr + ' >= ' + self._value
         else:
-            network_name = network_name + ' ( ' + self._edge_attr + ' = ' + self._value + ', nodes:edges=' + ratio +  ' )'
+             filter_as_str = self._edge_attr + ' = ' + self._value
+
+        return filter_as_str
+
+
+    def _set_new_network_name(self):
+
+        #number_of_edges = len(self._network.edges)
+        #if number_of_edges > 0:
+        #    ratio = str( float(format(1.0 * len(self._network.nodes) / len(self._network.edges), '.3f' ) ) )
+        #else:
+        #    ratio = 'n/a'
+
+        network_name = self._network.get_name() + ' ( ' + self._get_filter_expression_as_string() + ' )'
 
         self._network.set_name(network_name)
+
+
+    def _get_URL_of_parent_network(self):
+
+        url = self._server if self._server.startswith('http') else 'http://' + self._server
+
+        url = url + '/#/network/' +  self._uuid
+
+        return url
+
+
+    def _set_network_attributes(self):
+
+        parent_network_name =  self._network.get_network_attribute('name')['v']
+
+        #self._set_new_network_name()
+
+        self._network.set_network_attribute(name='prov:wasGeneratedBy', values=self._get_user_agent())
+
+        self._network.set_network_attribute(name='prov:wasDerivedFrom', values=self._get_URL_of_parent_network())
+
+        description = self._network.get_network_attribute('description')['v']
+
+        description = '<p><b>This network is a filtered version of the <a href="' \
+            + self._get_URL_of_parent_network() + '" target="_blank">' + parent_network_name + '</a></b>' \
+            + ' database in which all edges correspond to associations with a ' + self._get_filter_expression_as_string() + '.</p>' \
+            + description
+
+        self._network.set_network_attribute(name='description', values=description)
 
 
 
 
     def _remove_orphan_nodes(self):
 
-        nodes_with_edges = {}
-        orphan_node_ids = {}
+        nodes_with_edges = set()
+        orphan_node_ids = set()
 
+        # get all nodes that are connected to edgesre
         for key, value in self._network.edges.items():
-            nodes_with_edges[value['s']] = None
-            nodes_with_edges[value['t']] = None
+            nodes_with_edges.add(value['s'])
+            nodes_with_edges.add(value['t'])
 
+        # get all nodes that are not connected to edges (get all orphan nodes)
         for key, value in self._network.nodes.items():
             if value['@id'] not in nodes_with_edges:
-                orphan_node_ids[value['@id']] = None
+                orphan_node_ids.add(value['@id'])
 
-        print ('nodes with edges: {}  orphan nodes: {}'.format(len(nodes_with_edges), len(orphan_node_ids)) )
+        print ('edges: {}  nodes with edges: {}  orphan nodes: {}'.format(len(self._network.edges), len(nodes_with_edges), len(orphan_node_ids)) )
 
+        # remove all orphan nodes and their attributes
         for orphan_node_id in orphan_node_ids:
             node_attribute_id = self._network.nodes[orphan_node_id]['@id']
             del self._network.nodes[node_attribute_id]
             del self._network.nodeAttributes[node_attribute_id]
-
-
-
 
 
 
@@ -293,7 +299,7 @@ class NDExNetworkTrimmer(object):
 
         self._remove_orphan_nodes()
 
-        self._modify_network_name()
+        self._set_network_attributes()
 
 
         self._network.upload_to(self._server, self._user, self._pass)
